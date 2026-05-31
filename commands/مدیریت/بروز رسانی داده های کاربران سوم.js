@@ -1,0 +1,286 @@
+/*CMD
+  command: بروز رسانی داده های کاربران سوم
+  help: 
+  need_reply: false
+  auto_retry_time: 
+  folder: مدیریت
+
+  <<ANSWER
+
+  ANSWER
+
+  <<KEYBOARD
+
+  KEYBOARD
+  aliases: 
+  group: 
+CMD*/
+
+let Admin_Full_Name = User.getProperty("Admin_Full_Name");
+let Admin_User_ID = Bot.getProperty("Admin_User_ID");
+let Date_Time = Bot.getProperty("Date_Time");
+let Updating_User_Data = Bot.getProperty("Updating_User_Data");
+
+function To_Persian_Number(str) {
+return str
+.toString()
+.replace(/[0-9]/g, d => "۰۱۲۳۴۵۶۷۸۹"[d]);
+}
+
+function Get_Time_Period(hour) {
+if (hour >= 0 && hour < 3) return {Name:'نیمه شب', Emoji:'🌌'};
+if (hour >= 3 && hour < 5) return {Name:'پیش سحر', Emoji:'🌃'};
+if (hour >= 5 && hour < 6) return {Name:'سحر', Emoji:'🕌'};
+if (hour >= 6 && hour < 7) return {Name:'طلوع آفتاب', Emoji:'🌅'};
+if (hour >= 7 && hour < 9) return {Name:'صبح', Emoji:'🌄'};
+if (hour >= 9 && hour < 12) return {Name:'پیش از ظهر', Emoji:'🌞'};
+if (hour >= 12 && hour < 13) return {Name:'ظهر', Emoji:'☀️'};
+if (hour >= 13 && hour < 15) return {Name:'بعد از ظهر', Emoji:'🌤'};
+if (hour >= 15 && hour < 17) return {Name:'عصر', Emoji:'🌇'};
+if (hour >= 17 && hour < 19) return {Name:'غروب', Emoji:'🌆'};
+if (hour >= 19 && hour < 20) return {Name:'اوایل شب', Emoji:'🌉'};
+if (hour >= 20 && hour < 22) return {Name:'شب', Emoji:'🌃'};
+return {Name:'انتهای شب', Emoji:'🌙'};
+}
+
+function Get_Season_Jalali(jMonth) {
+if (jMonth >= 1 && jMonth <= 3) return {Name:'بهار', Emoji:'🌸'};
+if (jMonth >= 4 && jMonth <= 6) return {Name:'تابستان', Emoji:'☀️'};
+if (jMonth >= 7 && jMonth <= 9) return {Name:'پاییز', Emoji:'🍂'};
+return {Name:'زمستان', Emoji:'⛄️'};
+}
+
+function Get_Subscription_Type(days) {
+days = Number(days);
+
+if (days === 1) return "۱ روزه";
+if (days === 30) return "۱ ماهه";
+let months = Math.floor(days / 30);
+if (months >= 2) return To_Persian_Number(months) + " ماهه";
+return To_Persian_Number(days) + " روزه";
+}
+
+function Package_Days_Explain(days) {
+days = Number(days);
+
+if (days < 7) return To_Persian_Number(days) + " روز";
+let months = Math.floor(days / 30.4375);
+let remainingDays = days - Math.floor(months * 30.4375);
+let weeks = Math.floor(remainingDays / 7);
+let extraDays = remainingDays % 7;
+
+let parts = [];
+if (months > 0) parts.push(To_Persian_Number(months) + " ماه");
+if (weeks > 0) parts.push(To_Persian_Number(weeks) + " هفته");
+if (extraDays > 0) parts.push(To_Persian_Number(extraDays) + " روز");
+return parts.join(" و ");
+}
+
+function Format_Jalali_Expiration(dateObj) {
+let h = To_Persian_Number(dateObj.getHours());
+let m = To_Persian_Number(dateObj.getMinutes());
+let s = To_Persian_Number(dateObj.getSeconds());
+let Time_Period = Get_Time_Period(dateObj.getHours());
+let gYear = dateObj.getFullYear();
+let gMonth = dateObj.getMonth() + 1;
+let gDay = dateObj.getDate();
+let raw = Gregorian_To_Jalali(`${gYear}-${gMonth}-${gDay}`);
+raw = To_Persian_Number(raw);
+
+return (
+"📆تاریخ:" + raw + "\n" +
+"🕰زمان:" + h + ":" + m + ":" + s + " " + Time_Period.Emoji + " " + Time_Period.Name
+);
+}
+
+function Get_Operator(Phone_Number) {
+if (/^09(1|0)/.test(Phone_Number)) return "همراه اول";
+if (/^09(3|0)/.test(Phone_Number)) return "ایرانسل";
+if (/^092/.test(Phone_Number)) return "رایتل";
+return "نا مشخص";
+}
+
+function Round_GB(Value) {
+return To_Persian_Number(Number(Value).toFixed(3));
+}
+
+function Gregorian_To_Jalali(Date_String, Include_Time = false) {
+var g = Date_String.split(" ");
+var d = g[0].split("-");
+var gy = parseInt(d[0]);
+var gm = parseInt(d[1]);
+var gd = parseInt(d[2]);
+var g_days_in_month = [31,28,31,30,31,30,31,31,30,31,30,31];
+var j_days_in_month = [31,31,31,31,31,31,30,30,30,30,30,29];
+var gy2 = (gm > 2) ? (gy + 1) : gy;
+var days = 355666 + (365 * gy) + parseInt((gy2 + 3) / 4) -
+parseInt((gy2 + 99) / 100) + parseInt((gy2 + 399) / 400) + gd;
+for (var i = 0; i < gm - 1; ++i) days += g_days_in_month[i];
+var jy = -1595 + 33 * parseInt(days / 12053);
+days %= 12053;
+jy += 4 * parseInt(days / 1461);
+days %= 1461;
+if (days > 365) {
+jy += parseInt((days - 1) / 365);
+days = (days - 1) % 365;
+}
+
+var jm = 0;
+for (; jm < 11 && days >= j_days_in_month[jm]; ++jm) {
+days -= j_days_in_month[jm];
+}
+
+var jd = days + 1;
+const Weekdays = ["یکشنبه","دوشنبه","سه‌ شنبه","چهارشنبه","پنج‌ شنبه","جمعه","شنبه"];
+let Weekday = Weekdays[new Date(Date_String).getDay()];
+let MonthNames = ["فروردین","اردیبهشت","خرداد","تیر","مرداد","شهریور","مهر","آبان","آذر","دی","بهمن","اسفند"];
+let Shamsi_Date =
+Weekday + " " +
+To_Persian_Number(jd) + " " +
+MonthNames[jm] + " " +
+To_Persian_Number(jy);
+
+if (Include_Time) {
+Shamsi_Date += " - " + To_Persian_Number(g[1]);
+}
+
+return Shamsi_Date;
+}
+
+function Safe_Jalali(Date_String, include_time = false) {
+if (!Date_String || Date_String === null || Date_String === "" || Date_String === "null") {
+return "نا مشخص";
+}
+
+return Gregorian_To_Jalali(Date_String, include_time);
+}
+
+function Remaining_Days_Explain(Expire_Time_Stamp) {
+let now = Date.now();
+let remainingDays = Math.ceil((Expire_Time_Stamp - now) / 86400000);
+if (remainingDays < 0) remainingDays = 0;
+let months = Math.floor(remainingDays / 30.4375);
+let remaining = remainingDays - Math.floor(months * 30.4375);
+let weeks = Math.floor(remaining / 7);
+let days = remaining % 7;
+
+let parts = [];
+if (months > 0) parts.push(To_Persian_Number(months) + " ماه");
+if (weeks > 0) parts.push(To_Persian_Number(weeks) + " هفته");
+if (days > 0) parts.push(To_Persian_Number(days) + " روز");
+return To_Persian_Number(remainingDays) + " روز (" + parts.join(" و ") + ")";
+}
+
+try {
+var Json = JSON.parse(content);
+if (Json.lang == "fa") {
+let Full_Name = Json.name;
+let Phone_Number = To_Persian_Number(Json.comment);
+let Operator = Get_Operator(Json.comment);
+let Package_Days = Json.package_days;
+let Subscription = Get_Subscription_Type(Package_Days);
+let Expire_TimeStamp = Date.now() + (Package_Days * 86400000);
+let Expire_DateObj = new Date(Expire_TimeStamp);
+let Expiration_Date_Text = Format_Jalali_Expiration(Expire_DateObj);
+let Current_Usage = Round_GB(Json.current_usage_GB);
+let Last_Connection_Time = To_Persian_Number(Safe_Jalali(Json.last_online, true));
+let Package_Duration = Package_Days_Explain(Json.package_days);
+let Package_Start_Date = To_Persian_Number(Safe_Jalali(Json.start_date));
+let Total_Usage = To_Persian_Number(Json.usage_limit_GB);
+let Used_Usage = Current_Usage;
+let Remaining_Usage = To_Persian_Number((Json.usage_limit_GB - Json.current_usage_GB).toFixed(3));
+let Percent_Usage = To_Persian_Number(Math.floor((Json.current_usage_GB / Json.usage_limit_GB) * 100));
+let Remaining_Days = Remaining_Days_Explain(Expire_TimeStamp);
+
+Bot.setProperty("Full_Name" + Updating_User_Data, Full_Name);
+Bot.setProperty("Operator" + Updating_User_Data, Operator);
+Bot.setProperty("Phone_Number" + Updating_User_Data, Phone_Number);
+Bot.setProperty("Client_ID" + Updating_User_Data, Json.uuid);
+Bot.setProperty("Package_Duration" + Updating_User_Data, Package_Duration);
+Bot.setProperty("Current_Usage" + Updating_User_Data, Current_Usage);
+Bot.setProperty("Usage_Limit" + Updating_User_Data, Total_Usage);
+Bot.setProperty("Package_Start_Date" + Updating_User_Data, Package_Start_Date);
+Bot.setProperty("Last_Connection_Time" + Updating_User_Data, Last_Connection_Time);
+Bot.setProperty("Total_Usage" + Updating_User_Data, Total_Usage);
+Bot.setProperty("Used_Usage" + Updating_User_Data, Used_Usage);
+Bot.setProperty("Remaining_Usage" + Updating_User_Data, Remaining_Usage);
+Bot.setProperty("Percent_Usage" + Updating_User_Data, Percent_Usage);
+Bot.setProperty("Remaining_Days" + Updating_User_Data, Remaining_Days);
+Bot.setProperty("Subscription" + Updating_User_Data, Subscription);
+Bot.setProperty("Expiration_Date" + Updating_User_Data, Expiration_Date_Text);
+Bot.setProperty("Duration" + Updating_User_Data, Expire_TimeStamp);
+Bot.setProperty("ED25519_Private_Key" + Updating_User_Data, Json.ed25519_private_key);
+Bot.setProperty("ED25519_Public_Key" + Updating_User_Data, Json.ed25519_public_key);
+Bot.setProperty("WireGuard_Private_Key" + Updating_User_Data, Json.wg_pk);
+Bot.setProperty("WireGuard_Public_Key" + Updating_User_Data, Json.wg_pub);
+
+Api.sendMessage({
+text:"*🌹مدیریت گرامی* [" + Admin_Full_Name + "](tg://user?id=" + Admin_User_ID + ")\n" + "*تمام اطلاعات کاربر با موفقیت به‌روزرسانی شد.*\n\n*" + Date_Time + "*\n\n" + "➖➖➖➖➖➖➖➖➖➖\n" + "👤 *نام کامل:* " + Full_Name + "\n" + "📱 *شماره تماس:* " + Phone_Number + "\n" + "📶 *اپراتور:* " + Operator + "\n" + "🆔 *شناسه کلاینت:* `" + Json.uuid + "`\n\n" +
+
+"📦 *روزهای بسته:* " + To_Persian_Number(Package_Days) + "\n" +
+"🪪 *نوع اشتراک:* " + Subscription + "\n" +
+"⏱️ *تاریخ شروع:* " + Package_Start_Date + "\n" +
+"⏳ *تاریخ انقضا:* \n" + Expiration_Date_Text + "\n" +
+"📅 *مشخصات روزهای بسته:* " + Remaining_Days + "\n" +
+"📘 *نمایش مدت اشتراک:* " + Package_Duration + "\n\n" +
+
+"📊 *حجم کل:* " + Total_Usage + " گیگابایت\n" +
+"📥 *حجم مصرف‌شده:* " + Used_Usage + " گیگابایت\n" +
+"📤 *حجم باقی‌مانده:* " + Remaining_Usage + " گیگابایت\n" +
+"📈 *درصد مصرف:* " + Percent_Usage + "%\n" +
+"📡 *آخرین اتصال:* " + Last_Connection_Time + "\n\n" +
+
+"🔐 *کـلـیـدها:* \n" +
+"🔸 Ed25519 Private: `" + Json.ed25519_private_key + "`\n" +
+"🔹 Ed25519 Public: `" + Json.ed25519_public_key + "`\n" +
+"🔸 WG Private: `" + Json.wg_pk + "`\n" +
+"🔹 WG Public: `" + Json.wg_pub + "`\n\n" +
+"➖➖➖➖➖➖➖➖➖➖\n" +
+"✅ *تمام مقادیر فارسی ذخیره شدند.*",
+parse_mode: "Markdown",
+reply_markup: {
+inline_keyboard: [
+[{text: "🔙بازگشت به منوی قبل", callback_data: "پیکربندی سرور" }],
+[{text: "🏠بازگشت به منوی مدیریت", callback_data: "مدیریت" }]
+]}
+});
+
+Api.sendMessage({
+chat_id: Updating_User_Data,
+text: "* " + Full_Name + " لحظاتی پیش اشتراک " + Subscription + " شما در سرور و ربات بروز رسانی گردید. \n\n" + Date_Time + "\n➖➖➖➖➖➖➖➖➖➖\n👌جهت استفاده از امکانات ربات بر روی منوی مورد نظر کلیک کنید.*",
+parse_mode: "Markdown",
+reply_markup: { inline_keyboard: [
+[{text: "💎مشاهده اشتراک", callback_data: "اشتراک من"}]
+]}
+});
+
+HTTP.post({
+url: "https://api2.ippanel.com/api/v1/sms/send/panel/single",
+headers: {
+'Content-Type': 'application/json',
+'apikey': 'Zh0CWhURvAImMGnO3B0FryQloS5U5ENZd3TP96oOJvE='
+},
+body: {
+"recipient": [Phone_Number],
+"sender": "3000505",
+"message": " " + Full_Name + " لحظاتی پیش اشتراک " + Subscription + " شما در سرور و ربات بروز رسانی گردید.\n\nسرور آمبرلا",
+"description": {
+"summary": "description",
+"count_recipient": "1"
+}
+}
+});
+}
+}
+
+catch (error) {
+Api.sendMessage({
+text: "*🌹مدیریت گرامی* [" + Admin_Full_Name + "](tg://user?id=" + Admin_User_ID + ") *به بخش بروز رسانی داده های کاربران خوش آمدید.\n\n" + Date_Time + "⚠️خطا:\n\n" + error.message + ".\n➖➖➖➖➖➖➖➖➖➖\n👌 جهت استفاده از امکانات مدیریت بر روی منوی مورد نظر کلیک کنید.*",
+parse_mode: "Markdown",
+reply_markup: {
+inline_keyboard: [
+[{text: "🔙بازگشت به منوی قبل", callback_data: "پیکربندی سرور" }],
+[{text: "🏠بازگشت به منوی مدیریت", callback_data: "مدیریت" }]
+]}
+});
+}
